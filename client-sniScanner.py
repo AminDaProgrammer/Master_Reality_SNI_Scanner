@@ -633,7 +633,7 @@ def print_results_table(results, server_ip, port, transport):
         ["Total SNIs Tested", str(len(results))],
         ["Working SNIs", f"{GREEN}{len(working)}{RESET}"],
         ["Failed SNIs", f"{RED}{len(failed)}{RESET}"],
-        ["Success Rate", f"{len(working) / len(results) * 100:.1f}%"]
+        ["Success Rate", f"{len(working) / len(results) * 100:.1f}%" if len(results) > 0 else "0%"]
     ]
     print_table(stats_headers, stats_rows)
 

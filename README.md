@@ -88,13 +88,13 @@ git clone https://github.com/AminDaProgrammer/Master_Reality_SNI_Scanner.git
 cd Master_Reality_SNI_Scanner
 
 # Auto-install dependencies
-python3 dependencies-autoInstaller.py
+python dependencies-autoInstaller.py
 
 # Start server (on VPS)
-sudo python3 server-sniScanner.py
+sudo python server-sniScanner.py
 
 # Start client (on testing machine)
-python3 client-sniScanner.py --server <SERVER_IP>
+python client-sniScanner.py --server <SERVER_IP>
 ```
 > **💡 Windows Note:**  
 > On Windows, `python3` may not be recognized by default.  
