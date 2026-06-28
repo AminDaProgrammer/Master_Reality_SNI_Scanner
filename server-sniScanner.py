@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Master SNI Scanner v2.0.1 - SERVER MODE
+Master SNI Scanner v2.1.0 - SERVER MODE
 Professional Reality SNI Testing Tool
 """
 
@@ -404,7 +404,7 @@ def main():
     print(f"""
 {MAGENTA}
 ╔══════════════════════════════════════════════════════════════════╗
-║     Master SNI Scanner v2.0.1 - SERVER MODE                     ║
+║     Master SNI Scanner v2.1.0 - SERVER MODE                     ║
 ╚══════════════════════════════════════════════════════════════════╝
 {RESET}""")
 

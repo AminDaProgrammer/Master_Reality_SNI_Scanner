@@ -1,3 +1,4 @@
+
 # Master Reality SNI Scanner
 
 ## Professional Reality Protocol SNI Testing Tool
@@ -22,11 +23,15 @@ The tool addresses the critical challenge of identifying which SNI domains work 
 
 #### Client Component (`client-sniScanner.py`)
 - **Parallel Testing**: Multi-threaded testing with configurable worker count (1-20 workers)
-- **Four SNI Input Methods**:
+- **Five SNI Input Methods**:
   - Manual entry (one-by-one)
   - File import (batch loading from text files)
+  - File import with Shuffle (random order testing) ✨ *NEW in v2.1.0*
   - Auto-scan (discovers nearby SNI candidates)
   - Default presets (common working SNIs)
+- **Smart Result Sorting**: Working SNIs automatically sorted by latency (lowest first) ✨ *NEW in v2.1.0*
+- **Partial Results on Interrupt**: Ctrl+C shows and saves results from completed tests ✨ *NEW in v2.1.0*
+- **User-Friendly Output**: Clean message when no working SNIs are found ✨ *NEW in v2.1.0*
 - **Real-time Results**: Live feedback with latency metrics and success/failure status
 - **Formatted Output**: Beautiful ASCII tables for improved readability
 - **Comprehensive Logging**: Detailed results saved with timestamps
@@ -96,6 +101,7 @@ sudo python3 server-sniScanner.py
 # Start client (on testing machine)
 python3 client-sniScanner.py --server <SERVER_IP>
 ```
+
 > **💡 Windows Note:**  
 > On Windows, `python3` may not be recognized by default.  
 > The interpreter is often available as `py`, `python`, or `python.exe`.  
@@ -129,14 +135,20 @@ bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release
 Results are saved in the `results/` directory with human-readable filenames:
 
 ```
-Master_Reality_SNI_Scanner_2025_01_15_14_30_25.txt
+Master_SNI_Scanner_2025_01_15_14_30_25.txt
 ```
 
 #### File Contents
 - **Summary Statistics**: Total tested, working, failed, success rate
-- **Working SNIs Table**: Ranked list with latency metrics
+- **Working SNIs Table**: Ranked list with latency metrics (**sorted by latency - lowest first**)
 - **Failed SNIs Table**: List of non-functional domains
 - **Configuration Links**: Ready-to-use VLESS configuration strings
+
+#### Partial Results on Interrupt ✨ *NEW in v2.1.0*
+If you press `Ctrl+C` during testing, partial results are automatically:
+- Displayed in the terminal (same format as complete scan)
+- Saved to `results/` directory (same format as complete scan)
+- Includes all tested SNIs with their status and latency
 
 ---
 
@@ -158,8 +170,11 @@ Master_Reality_SNI_Scanner/
 ├── client-sniScanner.py          # Client module - SNI testing & reporting
 ├── dependencies-autoInstaller.py # Auto installer - Cross-platform dependencies
 ├── results/                      # Test results directory (auto-created)
-│   └── Master_Reality_SNI_Scanner_*.txt
+│   ├── Master_SNI_Scanner_*.txt
+│   └── Master_SNI_Scanner_working_*.txt
+├── domains.txt                  # list of domains
 └── README.md                     # Project documentation
+
 ```
 
 ---
@@ -170,13 +185,13 @@ Master_Reality_SNI_Scanner/
 ┌─────────────────────────────────────────────────────────────────┐
 │                         CLIENT                                  │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │  SNI Input: Manual | File | Auto-scan | Default         │   │
+│  │  SNI Input: Manual | File | File+Shuffle | Auto | Def   │   │
 │  ├──────────────────────────────────────────────────────────┤   │
 │  │  Transport Selection: TCP | WS | gRPC | h2 | XHTTP...  │   │
 │  ├──────────────────────────────────────────────────────────┤   │
 │  │  Parallel Testing: Worker Pool (1-20 threads)          │   │
 │  ├──────────────────────────────────────────────────────────┤   │
-│  │  Results: Real-time table + File export                │   │
+│  │  Results: Real-time table + File export (sorted by ping)│   │
 │  └──────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -217,7 +232,7 @@ Master_Reality_SNI_Scanner/
 - **Automatic Recovery**: Restores previous config on server failure
 - **Timeout Management**: Configurable timeouts prevent hanging
 - **Resource Cleanup**: Automatic termination of Xray processes
-- **User Interrupt**: Ctrl+C gracefully shuts down all services
+- **User Interrupt**: `Ctrl+C` gracefully shows and saves partial results ✨ *NEW in v2.1.0*
 
 ---
 
@@ -267,11 +282,11 @@ sudo python3 server-sniScanner.py
 # Start server (Windows - as Administrator)
 python server-sniScanner.py
 
-# Start client
+# Start client (interactive mode)
 python3 client-sniScanner.py
 
 # Start client with specific server
-python3 client-sniScanner.py --server 192.168.1.100
+python3 client-sniScanner.py --server 192.168.1.100 --api-port 8080
 ```
 
 ---

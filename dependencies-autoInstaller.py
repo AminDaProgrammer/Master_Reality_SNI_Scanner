@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Master SNI Scanner - Auto Installer v2.0.1
+Master SNI Scanner - Auto Installer v2.1.0
 Detects OS and installs all dependencies for both Server and Client
 """
 
@@ -45,7 +45,7 @@ def print_banner_logo():
     print(f"""
 {MAGENTA}
 ╔══════════════════════════════════════════════════════════════════╗
-║     Master SNI Scanner v2.0.1 - Auto Installer                  ║
+║     Master SNI Scanner v2.1.0 - Auto Installer                  ║
 ║     Detect OS | Install Dependencies | Setup Complete           ║
 ╚══════════════════════════════════════════════════════════════════╝
 {RESET}""")
@@ -294,7 +294,7 @@ def create_requirements_file():
     """Create requirements.txt file if it doesn't exist"""
     if not os.path.exists('requirements.txt'):
         with open('requirements.txt', 'w') as f:
-            f.write('# Master SNI Scanner v2.0.1\n')
+            f.write('# Master SNI Scanner v2.1.0\n')
             f.write('requests>=2.31.0\n')
             f.write('cryptography>=41.0.0\n')
         print_success("Created: requirements.txt")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Master SNI Scanner v2.0.1 - CLIENT MODE
+Master SNI Scanner v2.1.0 - CLIENT MODE
 Professional Reality SNI Testing Tool
 """
 
@@ -16,6 +16,7 @@ import platform
 import re
 import socket
 import signal
+import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -85,7 +86,7 @@ def print_banner():
     """Display the application banner at startup"""
     print(f"""{MAGENTA}{BOLD}
 ╔══════════════════════════════════════════════════════════════════╗
-║     Master SNI Scanner v2.0.1 - CLIENT MODE                     ║
+║     Master SNI Scanner v2.1.0 - CLIENT MODE                     ║
 ║     Professional Reality SNI Testing Tool                       ║
 ╚══════════════════════════════════════════════════════════════════╝{RESET}
 """)
@@ -104,7 +105,7 @@ def print_warning(msg): print(f"{YELLOW}[!]{RESET} {msg}")
 
 
 def print_table(headers, rows):
-    """Print a formatted ASCII table in the terminal"""
+    """Print a formatted table"""
     if not rows:
         return
 
@@ -140,7 +141,7 @@ def print_table(headers, rows):
 # ============================================================================
 
 def kill_all_xray():
-    """Terminate all running Xray processes"""
+    """Kill all Xray processes"""
     if platform.system().lower() == 'windows':
         subprocess.run('taskkill /f /im xray.exe', shell=True, capture_output=True)
     else:
@@ -148,7 +149,7 @@ def kill_all_xray():
 
 
 def get_xray_path():
-    """Find the Xray executable path on the system"""
+    """Find Xray executable path"""
     if platform.system().lower() == 'windows':
         paths = [r'C:\Program Files\xray\xray.exe', r'C:\xray\xray.exe']
         for path in paths:
@@ -222,16 +223,7 @@ def select_batch_size():
 
 
 def scan_nearby_snis(server_ip, threads=20):
-    """
-    Auto-scan for nearby SNI candidates in the server's network range
-
-    Args:
-        server_ip: Server IP address
-        threads: Number of threads for parallel scanning
-
-    Returns:
-        list: List of discovered SNI domains
-    """
+    """Auto-scan for SNI candidates"""
     print_info("Auto-scanning for nearby SNIs...")
     print_warning("This may take 1-2 minutes...")
 
@@ -244,7 +236,6 @@ def scan_nearby_snis(server_ip, threads=20):
     print_info(f"Scanning network: {base_network}.0/24")
 
     def check_port(ip):
-        """Check if port 443 is open on a given IP"""
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(0.5)
@@ -334,13 +325,26 @@ def get_sni_manual():
     return sni_list
 
 
+# ============================================================================
+# SECTION 5: SNI LIST MANAGEMENT - Get SNI list based on selected method
+# ============================================================================
+
 def get_sni_list(server_ip, sni_method):
     """Get SNI list based on selected method"""
     if sni_method == '1':
         return get_sni_manual()
     elif sni_method == '2':
         snis = get_sni_from_file()
-        return snis if snis else get_sni_manual()
+        if snis:
+            # Ask user if they want to shuffle
+            shuffle_choice = input(f"{CYAN}Shuffle SNI list? (y/n): {RESET}").strip().lower()
+            if shuffle_choice == 'y':
+                random.shuffle(snis)
+                print_success(f"SNI list shuffled ({len(snis)} items)")
+            return snis
+        else:
+            print_warning("No valid SNIs found in file. Falling back to manual input.")
+            return get_sni_manual()
     elif sni_method == '3':
         return scan_nearby_snis(server_ip)
     else:
@@ -367,7 +371,7 @@ def show_sni_method_menu():
 
 
 def install_requirements():
-    """Check and install required Python packages"""
+    """Check and install requirements"""
     print_info("Checking requirements...")
 
     for package in ['requests', 'cryptography']:
@@ -393,11 +397,12 @@ def install_requirements():
 
 
 # ============================================================================
-# SECTION 5: XRAY CLIENT CONFIGURATION - Build client configs
+# SECTION 6: XRAY CLIENT CONFIGURATION - Build client configs
 # ============================================================================
 
 def create_xray_config(server_ip, port, public_key, sni, short_id, server_uuid, transport):
     """Create Xray client configuration with server UUID"""
+
     user = {"id": server_uuid, "encryption": "none"}
 
     outbound = {
@@ -438,7 +443,7 @@ def create_xray_config(server_ip, port, public_key, sni, short_id, server_uuid, 
 
 
 # ============================================================================
-# SECTION 6: CONNECTION TESTING - Test SNI connections
+# SECTION 7: CONNECTION TESTING - Test SNI connections
 # ============================================================================
 
 def run_single_xray_and_test(config_path, timeout=8):
@@ -509,6 +514,7 @@ def test_single_sni(server_ip, port, public_key, sni, short_id, server_uuid, tra
 
 def test_batch_parallel(sni_batch, server_ip, port, public_key, short_id, server_uuid, transport, max_workers):
     """Test a batch of SNIs in parallel"""
+    global _test_results_global
     results = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -519,6 +525,8 @@ def test_batch_parallel(sni_batch, server_ip, port, public_key, short_id, server
         for future in as_completed(futures):
             result = future.result()
             results.append(result)
+            # Store each result immediately for partial display on interrupt
+            _test_results_global.append(result)
 
             if result['success']:
                 print_success(f"  ✓ {result['sni']} ({result['latency']}ms)")
@@ -529,7 +537,7 @@ def test_batch_parallel(sni_batch, server_ip, port, public_key, short_id, server
 
 
 # ============================================================================
-# SECTION 7: SERVER COMMUNICATION - Send/Receive data from server
+# SECTION 8: SERVER COMMUNICATION - Send/Receive data from server
 # ============================================================================
 
 def send_config_to_server(server_ip, sni_list, transport, batch_size, api_port=8080):
@@ -565,7 +573,7 @@ def apply_server_batch(server_ip, sni_batch, transport, batch_index, total_batch
 
 
 # ============================================================================
-# SECTION 8: RESULTS HANDLING - Save and display results
+# SECTION 9: RESULTS HANDLING - Save and display results
 # ============================================================================
 
 def save_results_table(all_results, server_ip, port, transport):
@@ -581,7 +589,7 @@ def save_results_table(all_results, server_ip, port, transport):
 
     with open(filename, 'w', encoding='utf-8') as f:
         f.write("=" * 100 + "\n")
-        f.write(f"MASTER SNI SCANNER v2.0.1 - TEST RESULTS\n")
+        f.write(f"MASTER SNI SCANNER v2.1.0 - TEST RESULTS\n")
         f.write(f"Date: {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"Server: {server_ip}:{port}\n")
         f.write(f"Transport: {transport.upper()}\n")
@@ -594,13 +602,15 @@ def save_results_table(all_results, server_ip, port, transport):
             f.write("-" * 100 + "\n")
             f.write(f"{'#':<5} {'SNI Domain':<40} {'Latency (ms)':<15} {'Status':<10}\n")
             f.write("-" * 100 + "\n")
-            for i, w in enumerate(working, 1):
+            # Feature 3: Sort by latency (low to high)
+            working_sorted = sorted(working, key=lambda x: x['latency'])
+            for i, w in enumerate(working_sorted, 1):
                 f.write(f"{i:<5} {w['sni']:<40} {w['latency']:<15} WORKING\n")
             f.write("-" * 100 + "\n\n")
 
             f.write("WORKING CONFIGURATION LINKS:\n")
             f.write("=" * 100 + "\n\n")
-            for w in working:
+            for w in working_sorted:
                 f.write(f"SNI: {w['sni']}\n")
                 f.write(f"Link: {w['link']}\n")
                 f.write("-" * 100 + "\n")
@@ -618,7 +628,7 @@ def save_results_table(all_results, server_ip, port, transport):
 
 
 def print_results_table(results, server_ip, port, transport):
-    """Print results in a formatted table"""
+    """Print results in a formatted table sorted by latency"""
     working = [r for r in results if r['success']]
     failed = [r for r in results if not r['success']]
 
@@ -631,19 +641,30 @@ def print_results_table(results, server_ip, port, transport):
         ["Server", f"{server_ip}:{port}"],
         ["Transport", transport.upper()],
         ["Total SNIs Tested", str(len(results))],
-        ["Working SNIs", f"{GREEN}{len(working)}{RESET}"],
-        ["Failed SNIs", f"{RED}{len(failed)}{RESET}"],
+        ["Working SNIs", f"{GREEN}{len(working)}{RESET}" if working else f"{RED}0{RESET}"],
         ["Success Rate", f"{len(working) / len(results) * 100:.1f}%"]
     ]
     print_table(stats_headers, stats_rows)
 
     if working:
-        print(f"\n{GREEN}{BOLD}WORKING SNIs:{RESET}\n")
+        print(f"\n{GREEN}{BOLD}WORKING SNIs (sorted by latency):{RESET}\n")
         working_headers = ["#", "SNI Domain", "Latency (ms)", "Status"]
         working_rows = []
-        for i, w in enumerate(working, 1):
+        # Feature 3: Sort by latency (low to high)
+        working_sorted = sorted(working, key=lambda x: x['latency'])
+        for i, w in enumerate(working_sorted, 1):
             working_rows.append([i, w['sni'], w['latency'], f"{GREEN}✓ WORKING{RESET}"])
         print_table(working_headers, working_rows)
+    else:
+        # Feature 1: No working SNIs found - show formatted message
+        print(f"\n{YELLOW}{BOLD}{'=' * 60}{RESET}")
+        print(f"{YELLOW}{BOLD}  No working SNIs found!{RESET}")
+        print(f"{YELLOW}{BOLD}{'=' * 60}{RESET}")
+        print(f"{CYAN}  Suggestions:{RESET}")
+        print(f"  • Try a different transport protocol")
+        print(f"  • Try different SNI domains")
+        print(f"  • Check server firewall")
+        print(f"{YELLOW}{BOLD}{'=' * 60}{RESET}")
 
     if failed and len(failed) <= 20:
         print(f"\n{RED}{BOLD}FAILED SNIs:{RESET}\n")
@@ -657,7 +678,7 @@ def print_results_table(results, server_ip, port, transport):
 
 
 # ============================================================================
-# SECTION 9: CONFIGURATION SUMMARY - Review and confirm settings
+# SECTION 10: CONFIGURATION SUMMARY - Review and confirm settings
 # ============================================================================
 
 def show_config_summary(transport, workers, batch_size, sni_method, sni_count, server_ip):
@@ -706,30 +727,110 @@ def show_config_summary(transport, workers, batch_size, sni_method, sni_count, s
 
 
 # ============================================================================
-# SECTION 10: CLEANUP & MAIN - Final cleanup and main execution
+# SECTION 11: CLEANUP & SIGNAL HANDLER - Final cleanup and interrupt handling
 # ============================================================================
 
+# Global variables for partial results
+_test_results_global = []
+_test_completed = False
+_server_ip_global = ""
+_server_port_global = 0
+_transport_global = ""
+
+
 def cleanup():
-    """Final cleanup - kill all Xray processes"""
+    """Final cleanup"""
     print_info("Cleaning up Xray processes...")
     kill_all_xray()
     print_success("Cleanup complete")
 
 
+def save_partial_results():
+    """Save partial results to results folder - same format as complete scan"""
+    global _test_results_global, _server_ip_global, _server_port_global, _transport_global
+
+    if not _test_results_global:
+        return
+
+    results_dir = Path("results")
+    results_dir.mkdir(exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    filename = results_dir / f"Master_SNI_Scanner_{timestamp}.txt"
+
+    working = [r for r in _test_results_global if r['success']]
+
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write("=" * 100 + "\n")
+        f.write(f"MASTER SNI SCANNER v2.1.0 - TEST RESULTS (INTERRUPTED)\n")
+        f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Server: {_server_ip_global}:{_server_port_global}\n")
+        f.write(f"Transport: {_transport_global.upper()}\n")
+        f.write(f"Total SNIs Tested: {len(_test_results_global)}\n")
+        f.write(f"Working SNIs: {len(working)}\n")
+        f.write("=" * 100 + "\n\n")
+
+        if working:
+            f.write("WORKING SNIs:\n")
+            f.write("-" * 100 + "\n")
+            f.write(f"{'#':<5} {'SNI Domain':<40} {'Latency (ms)':<15} {'Status':<10}\n")
+            f.write("-" * 100 + "\n")
+            working_sorted = sorted(working, key=lambda x: x['latency'])
+            for i, w in enumerate(working_sorted, 1):
+                f.write(f"{i:<5} {w['sni']:<40} {w['latency']:<15} WORKING\n")
+            f.write("-" * 100 + "\n\n")
+
+            f.write("WORKING CONFIGURATION LINKS:\n")
+            f.write("=" * 100 + "\n\n")
+            for w in working_sorted:
+                f.write(f"SNI: {w['sni']}\n")
+                f.write(f"Link: {w['link']}\n")
+                f.write("-" * 100 + "\n")
+        else:
+            f.write("No working SNIs found.\n")
+
+        # Also save working links separately
+        if working:
+            working_file = results_dir / f"Master_SNI_Scanner_working_{timestamp}.txt"
+            with open(working_file, 'w', encoding='utf-8') as wf:
+                for w in working:
+                    wf.write(f"{w['link']}\n")
+            print_success(f"Working links saved to: {working_file}")
+
+    print_success(f"Results saved to: {filename}")
+
+
 def signal_handler(signum, frame):
-    """Handle Ctrl+C interrupt gracefully"""
+    """Handle Ctrl+C interrupt gracefully - show and save partial results before exit"""
+    global _test_results_global, _test_completed
+
     print_info("\n\nInterrupted by user")
+
+    # If test was not completed and we have partial results
+    if not _test_completed and _test_results_global:
+        print_info(f"Displaying partial results ({len(_test_results_global)} SNIs tested)...")
+        print_results_table(_test_results_global, _server_ip_global, _server_port_global, _transport_global)
+        save_partial_results()
+    elif not _test_completed and not _test_results_global:
+        print_info("No SNIs have been tested yet.")
+
     cleanup()
     sys.exit(0)
 
 
+# ============================================================================
+# SECTION 12: MAIN - Main execution flow
+# ============================================================================
+
 def main():
     """Main client execution flow"""
+    global _test_results_global, _test_completed, _server_ip_global, _server_port_global, _transport_global
+
     print_banner()
 
-    parser = argparse.ArgumentParser(description='Master SNI Scanner v2.0.1 - Client')
+    parser = argparse.ArgumentParser(description='Master SNI Scanner v2.1.0 - Client')
     parser.add_argument('--server', help='Server IP address')
-    parser.add_argument('--api-port', type=int, default=8080,
+    parser.add_argument('--api-port', type=int, default=None,
                         help='API port for server connection (default: 8080)')
     args = parser.parse_args()
 
@@ -745,15 +846,15 @@ def main():
     server_ip = None
     sni_list = None
     api_port = 8080
+    first_run = True
 
     while not config_confirmed:
-        transport = select_transport()
-        max_workers = select_workers()
-        batch_size = select_batch_size()
-
-        if args.server:
+        # ============================================================
+        # STEP 1: Get Server IP
+        # ============================================================
+        if args.server and first_run:
             server_ip = args.server
-            print_success(f"Server IP: {server_ip}")
+            print_success(f"Server IP: {server_ip} (from command line)")
         else:
             server_ip = input(f"\n{CYAN}Enter server IP address: {RESET}").strip()
 
@@ -762,19 +863,22 @@ def main():
             return
 
         # ============================================================
-        # API PORT: Get from user if not provided via command line
+        # STEP 2: Get API Port
         # ============================================================
-        if args.api_port != 8080:
-            # User specified API port via command line
+        if args.api_port is not None and first_run:
             api_port = args.api_port
             print_success(f"API Port: {api_port} (from command line)")
         else:
-            # Ask user for API port
             api_port_input = input(f"{CYAN}Enter API port (default 8080): {RESET}").strip()
             api_port = int(api_port_input) if api_port_input.isdigit() else 8080
             print_success(f"API Port: {api_port}")
-        # ============================================================
 
+        # After first run, always ask user for input (editing mode)
+        first_run = False
+
+        # ============================================================
+        # STEP 3: Health Check - Connect to server
+        # ============================================================
         print_info(f"Connecting to server {server_ip}:{api_port}...")
         try:
             response = requests.get(f'http://{server_ip}:{api_port}/health', timeout=10)
@@ -786,6 +890,24 @@ def main():
             print_error(f"Cannot reach server at {server_ip}:{api_port} - {e}")
             return
 
+        # ============================================================
+        # STEP 4: Select Transport Protocol
+        # ============================================================
+        transport = select_transport()
+
+        # ============================================================
+        # STEP 5: Select Number of Parallel Workers
+        # ============================================================
+        max_workers = select_workers()
+
+        # ============================================================
+        # STEP 6: Select Batch Size
+        # ============================================================
+        batch_size = select_batch_size()
+
+        # ============================================================
+        # STEP 7: Select SNI Input Method
+        # ============================================================
         sni_method = show_sni_method_menu()
         sni_list = get_sni_list(server_ip, sni_method)
 
@@ -793,6 +915,9 @@ def main():
             print_error("No SNI selected")
             return
 
+        # ============================================================
+        # STEP 8: Show Summary and Confirm
+        # ============================================================
         config_confirmed = show_config_summary(
             transport, max_workers, batch_size, sni_method, len(sni_list), server_ip
         )
@@ -801,7 +926,16 @@ def main():
             print_info("\n" + "=" * 50)
             print_info("Editing configuration. Please re-enter your settings.")
             print_info("=" * 50 + "\n")
+            first_run = False
 
+    # Store global values for partial save
+    _server_ip_global = server_ip
+    _server_port_global = api_port
+    _transport_global = transport
+
+    # ============================================================
+    # START TESTING
+    # ============================================================
     print_info(f"\nTotal SNIs to test: {len(sni_list)}")
     print_info(f"Batch size: {batch_size}")
     print_info(f"Parallel workers: {max_workers}")
@@ -822,40 +956,48 @@ def main():
 
     all_results = []
     batches = config['batches']
+    _test_results_global = []
 
-    for batch_idx, batch in enumerate(batches):
-        print(f"\n{YELLOW}{BOLD}{'=' * 60}{RESET}")
-        print(f"{YELLOW}{BOLD}Processing Batch {batch_idx + 1}/{len(batches)}{RESET}")
-        print(f"{YELLOW}{BOLD}{'=' * 60}{RESET}")
-        print_info(f"SNIs in this batch: {len(batch)}")
+    try:
+        for batch_idx, batch in enumerate(batches):
+            print(f"\n{YELLOW}{BOLD}{'=' * 60}{RESET}")
+            print(f"{YELLOW}{BOLD}Processing Batch {batch_idx + 1}/{len(batches)}{RESET}")
+            print(f"{YELLOW}{BOLD}{'=' * 60}{RESET}")
+            print_info(f"SNIs in this batch: {len(batch)}")
 
-        print_info("Updating server config for this batch...")
-        if not apply_server_batch(server_ip, batch, transport, batch_idx, len(batches), api_port):
-            print_error(f"Failed to apply batch {batch_idx + 1}")
-            continue
+            print_info("Updating server config for this batch...")
+            if not apply_server_batch(server_ip, batch, transport, batch_idx, len(batches), api_port):
+                print_error(f"Failed to apply batch {batch_idx + 1}")
+                continue
 
-        print_success(f"Server ready for batch {batch_idx + 1}")
-        print_info("Waiting for server to stabilize...")
-        time.sleep(3)
+            print_success(f"Server ready for batch {batch_idx + 1}")
+            print_info("Waiting for server to stabilize...")
+            time.sleep(3)
 
-        print_info(f"\nTesting {len(batch)} SNIs with {max_workers} parallel workers...\n")
-        batch_results = test_batch_parallel(
-            batch, config['server_ip'], config['port'], config['public_key'],
-            config['short_id'], config['server_uuid'], transport, max_workers
-        )
+            print_info(f"\nTesting {len(batch)} SNIs with {max_workers} parallel workers...\n")
+            batch_results = test_batch_parallel(
+                batch, config['server_ip'], config['port'], config['public_key'],
+                config['short_id'], config['server_uuid'], transport, max_workers
+            )
 
-        all_results.extend(batch_results)
+            all_results.extend(batch_results)
 
-        working_in_batch = sum(1 for r in batch_results if r['success'])
-        print_info(f"\nBatch {batch_idx + 1} complete: {working_in_batch}/{len(batch)} working")
+            working_in_batch = sum(1 for r in batch_results if r['success'])
+            print_info(f"\nBatch {batch_idx + 1} complete: {working_in_batch}/{len(batch)} working")
 
+    except KeyboardInterrupt:
+        raise
+
+    _test_completed = True
+
+    # Print and save results
     print_results_table(all_results, config['server_ip'], config['port'], transport)
     save_results_table(all_results, config['server_ip'], config['port'], transport)
 
     cleanup()
 
     print(f"\n{GREEN}{BOLD}{'=' * 80}{RESET}")
-    print(f"{GREEN}{BOLD}MASTER SNI SCANNER v2.0.1 - COMPLETED{RESET}")
+    print(f"{GREEN}{BOLD}MASTER SNI SCANNER v2.1.0 - COMPLETED{RESET}")
     print(f"{GREEN}{BOLD}{'=' * 80}{RESET}\n")
 
 
